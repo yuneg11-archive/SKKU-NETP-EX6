@@ -14,12 +14,16 @@ int main(int argc, char *argv[]) {
     uint32_t payloadSize = 1472;
     uint64_t simulationTime = 10;
     double distance = 5;
+    int nMpdu = 32;
 
     CommandLine cmd;
     cmd.AddValue("payloadSize", "Payload size in bytes", payloadSize);
     cmd.AddValue("simulationTime", "Simulation time in seconds", simulationTime);
     cmd.AddValue("distance", "Distance in meters between the station and the access point", distance);
+    cmd.AddValue("nMpdu", "Number of MPDU frames to aggregate", nMpdu);
     cmd.Parse(argc, argv);
+
+    uint32_t maxAmpduSize = nMpdu * (payloadSize + 100);
 
     NodeContainer wifiStaNodes;
     wifiStaNodes.Create(1);
@@ -41,14 +45,16 @@ int main(int argc, char *argv[]) {
     WifiMacHelper mac;
     mac.SetType("ns3::StaWifiMac",
                 "Ssid", SsidValue(ssid),
-                "ActiveProbing", BooleanValue(false));
+                "ActiveProbing", BooleanValue(false),
+                "BE_MaxAmpduSize", UintegerValue(maxAmpduSize));
 
     NetDeviceContainer staDevice = wifi.Install(phy, mac, wifiStaNodes);
 
     mac.SetType("ns3::ApWifiMac",
                 "Ssid", SsidValue(ssid),
                 "BeaconInterval", TimeValue(MicroSeconds(102400)),
-                "BeaconGeneration", BooleanValue(true));
+                "BeaconGeneration", BooleanValue(true),
+                "BE_MaxAmpduSize", UintegerValue(maxAmpduSize));
 
     NetDeviceContainer apDevice = wifi.Install(phy, mac, wifiApNodes);
 
@@ -93,6 +99,7 @@ int main(int argc, char *argv[]) {
     uint32_t totalPacketsRecv = DynamicCast<UdpServer>(serverApp.Get(0))->GetReceived();
     double throughput = totalPacketsRecv * payloadSize * 8 / (double)(simulationTime * 1000000);
 
+    std::cout << "nMpdu: " << nMpdu << std::endl;
     std::cout << "Throughput: " << throughput << " Mbps" << std::endl;
 
     Simulator::Destroy();
